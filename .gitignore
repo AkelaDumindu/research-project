@@ -1,0 +1,11 @@
+# Ignore virtual environment
+venv/
+__pycache__/
+*.pyc
+
+# Ignore data files
+data/
+*.json
+
+# Ignore environment files
+.env
