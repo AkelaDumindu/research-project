@@ -1,177 +1,216 @@
 """
-collect_github_data.py
---------------------------------
-Collects repository metadata, issues, commits, and contributors from GitHub.
-Safely handles rate limits, pagination, and data formatting for ML-based issue assignment projects.
+collect_multiple_repos_fixed_v2.py
+----------------------------------
+Handles NamedUser serialization correctly.
+Converts PyGithub user objects into string logins before JSON export.
 """
 
-from github import Github, GithubException, RateLimitExceededException
 import os
 import json
 import time
+import random
 from dotenv import load_dotenv
 from tqdm import tqdm
+from github import Github, GithubException
 
-# ------------------------------------------------------
-# Load GitHub token securely
-# ------------------------------------------------------
-load_dotenv()
-token = os.getenv("GITHUB_TOKEN")
+# Optional Auth handling (suppresses warnings)
+try:
+    from github import Auth
+    _HAS_AUTH = True
+except Exception:
+    _HAS_AUTH = False
 
-if not token:
-    raise ValueError("❌ GitHub token not found! Please add it to your .env file as GITHUB_TOKEN=YOUR_TOKEN")
-
-# Authenticate
-g = Github(token)
-
-# ------------------------------------------------------
 # Configuration
-# ------------------------------------------------------
-REPO_NAME = "tensorflow/tensorflow"  # <--- change to your target repo
 OUTPUT_DIR = "data"
-ISSUE_LIMIT = 200        # Adjust limits if you want to collect more (use 0 for unlimited)
+ISSUE_LIMIT = 200
 COMMIT_LIMIT = 200
 CONTRIBUTOR_LIMIT = 100
-
+MAX_RETRY = 3
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# ------------------------------------------------------
-# Helper functions
-# ------------------------------------------------------
-def save_json(data, filename):
-    path = os.path.join(OUTPUT_DIR, filename)
+# Load token
+load_dotenv()
+TOKEN = os.getenv("GITHUB_TOKEN")
+if not TOKEN:
+    raise SystemExit("❌ Please create a .env file with GITHUB_TOKEN=your_token")
+
+# Create GitHub client
+if _HAS_AUTH:
+    g = Github(auth=Auth.Token(TOKEN))
+else:
+    g = Github(TOKEN)
+
+def safe_login(user):
+    """Safely get a username string from a NamedUser or None."""
+    try:
+        return user.login if user else None
+    except Exception:
+        return None
+
+def safe_iso(dt):
+    if not dt:
+        return None
+    try:
+        return dt.isoformat()
+    except Exception:
+        return str(dt)
+
+def save_json(obj, path):
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
-    print(f"💾 Saved {filename} ({len(data) if isinstance(data, list) else '1'} records)")
+        json.dump(obj, f, indent=2, ensure_ascii=False)
 
 def handle_rate_limit():
-    rate_limit = g.get_rate_limit()
-    core = rate_limit.resources.core
-    if core.remaining == 0:
-        reset_time = core.reset.timestamp()
-        sleep_for = reset_time - time.time() + 5
-        if sleep_for > 0:
-            print(f"⚠️ Rate limit reached. Sleeping for {sleep_for/60:.1f} minutes...")
-            time.sleep(sleep_for)
-
-
-# ------------------------------------------------------
-# Step 1: Connect to Repository
-# ------------------------------------------------------
-try:
-    repo = g.get_repo(REPO_NAME)
-    print(f"✅ Connected to repository: {repo.full_name}")
-except GithubException as e:
-    raise SystemExit(f"❌ Error: Cannot access repo '{REPO_NAME}' - {e}")
-
-# ------------------------------------------------------
-# Step 2: Repository Metadata
-# ------------------------------------------------------
-repo_data = {
-    "name": repo.full_name,
-    "description": repo.description,
-    "language": repo.language,
-    "created_at": repo.created_at.isoformat(),
-    "updated_at": repo.updated_at.isoformat(),
-    "open_issues": repo.open_issues_count,
-    "stargazers": repo.stargazers_count,
-    "forks": repo.forks_count,
-    "watchers": repo.watchers_count,
-    "url": repo.html_url
-}
-save_json(repo_data, "repo_meta.json")
-
-# ------------------------------------------------------
-# Step 3: Collect Issues (excluding Pull Requests)
-# ------------------------------------------------------
-print("\n📥 Fetching issues...")
-issues_data = []
-issues = repo.get_issues(state="all")
-
-for i, issue in enumerate(tqdm(issues, desc="Issues")):
-    if ISSUE_LIMIT and i >= ISSUE_LIMIT:
-        break
-    if issue.pull_request is not None:
-        continue  # Skip pull requests
-    handle_rate_limit()
+    """Pause if API rate limit reached."""
     try:
-        issues_data.append({
-            "number": issue.number,
-            "title": issue.title or "",
-            "body": issue.body or "",
-            "text": (issue.title or "") + " " + (issue.body or ""),
-            "labels": [label.name for label in issue.labels],
-            "state": issue.state,
-            "created_at": issue.created_at.isoformat() if issue.created_at else None,
-            "closed_at": issue.closed_at.isoformat() if issue.closed_at else None,
-            "assignee": issue.assignee.login if issue.assignee else None,
-            "assignees": [a.login for a in issue.assignees] if issue.assignees else [],
-            "comments": issue.comments,
-            "url": issue.html_url
-        })
-    except Exception as e:
-        print(f"⚠️ Skipped issue {issue.number} due to: {e}")
+        remaining, _ = g.rate_limiting
+        if remaining < 1:
+            reset_time = g.rate_limiting_resettime
+            sleep_for = reset_time - time.time() + 5
+            if sleep_for > 0:
+                print(f"⚠️ Rate limit hit. Sleeping {sleep_for/60:.1f} minutes...")
+                time.sleep(sleep_for)
+    except Exception:
+        time.sleep(5)
 
-save_json(issues_data, "issues.json")
+def collect_repo(repo_name):
+    print(f"\n📂 Collecting from: {repo_name}")
+    repo_folder = os.path.join(OUTPUT_DIR, repo_name.replace("/", "_"))
+    os.makedirs(repo_folder, exist_ok=True)
 
-# ------------------------------------------------------
-# Step 4: Collect Commits
-# ------------------------------------------------------
-print("\n📥 Fetching commits...")
-commits_data = []
-commits = repo.get_commits()
-
-for i, commit in enumerate(tqdm(commits, desc="Commits")):
-    if COMMIT_LIMIT and i >= COMMIT_LIMIT:
-        break
-    handle_rate_limit()
     try:
-        commits_data.append({
-            "sha": commit.sha,
-            "message": commit.commit.message,
-            "author": commit.author.login if commit.author else "Unknown",
-            "date": commit.commit.author.date.isoformat(),
-            "url": commit.html_url
-        })
-    except Exception as e:
-        print(f"⚠️ Skipped commit due to: {e}")
+        repo = g.get_repo(repo_name)
+    except GithubException as e:
+        print(f"❌ Cannot access {repo_name}: {e}")
+        return
 
-save_json(commits_data, "commits.json")
+    # ---- Metadata ----
+    repo_meta = {
+        "full_name": repo.full_name,
+        "description": repo.description,
+        "language": repo.language,
+        "created_at": safe_iso(repo.created_at),
+        "updated_at": safe_iso(repo.updated_at),
+        "stargazers": repo.stargazers_count,
+        "forks": repo.forks_count,
+        "url": repo.html_url,
+        "organization": safe_login(repo.organization)
+    }
+    save_json(repo_meta, os.path.join(repo_folder, "repo_meta.json"))
 
-# ------------------------------------------------------
-# Step 5: Collect Contributors
-# ------------------------------------------------------
-print("\n📥 Fetching contributors...")
-contributors_data = []
-contributors = repo.get_contributors()
+    # ---- Issues ----
+    issues_data = []
+    for i, issue in enumerate(tqdm(repo.get_issues(state="all"), desc=f"Issues - {repo_name}")):
+        if ISSUE_LIMIT and i >= ISSUE_LIMIT:
+            break
+        if issue.pull_request is not None:
+            continue
+        handle_rate_limit()
+        try:
+            issues_data.append({
+                "number": issue.number,
+                "title": issue.title or "",
+                "body": issue.body or "",
+                "text": f"{issue.title or ''} {issue.body or ''}",
+                "labels": [l.name for l in issue.labels],
+                "state": issue.state,
+                "created_at": safe_iso(issue.created_at),
+                "closed_at": safe_iso(issue.closed_at),
+                "assignee": safe_login(issue.assignee),
+                "assignees": [safe_login(a) for a in issue.assignees],
+                "comments": issue.comments,
+                "url": issue.html_url
+            })
+        except Exception as e:
+            print(f"⚠️ Skipped issue #{issue.number}: {e}")
+    save_json(issues_data, os.path.join(repo_folder, "issues.json"))
 
-for i, user in enumerate(tqdm(contributors, desc="Contributors")):
-    if CONTRIBUTOR_LIMIT and i >= CONTRIBUTOR_LIMIT:
-        break
-    handle_rate_limit()
+    # ---- Commits ----
+    commits_data = []
+    for i, commit in enumerate(tqdm(repo.get_commits(), desc=f"Commits - {repo_name}")):
+        if COMMIT_LIMIT and i >= COMMIT_LIMIT:
+            break
+        handle_rate_limit()
+        try:
+            commits_data.append({
+                "sha": commit.sha,
+                "message": commit.commit.message,
+                "author": safe_login(commit.author),
+                "committer": safe_login(commit.committer),
+                "date": safe_iso(commit.commit.author.date if commit.commit.author else None),
+                "url": commit.html_url
+            })
+        except Exception as e:
+            print(f"⚠️ Skipped commit: {e}")
+    save_json(commits_data, os.path.join(repo_folder, "commits.json"))
+
+    # ---- Contributors ----
+    contributors_data = []
+    for i, user in enumerate(tqdm(repo.get_contributors(), desc=f"Contributors - {repo_name}")):
+        if CONTRIBUTOR_LIMIT and i >= CONTRIBUTOR_LIMIT:
+            break
+        handle_rate_limit()
+        try:
+            contributors_data.append({
+                "login": safe_login(user),
+                "contributions": user.contributions,
+                "profile_url": user.html_url
+            })
+        except Exception as e:
+            print(f"⚠️ Skipped contributor: {e}")
+    save_json(contributors_data, os.path.join(repo_folder, "contributors.json"))
+
+    # ---- Collaborators (skip if forbidden) ----
+    collaborators_data = []
     try:
-        contributors_data.append({
-            "login": user.login,
-            "contributions": user.contributions,
-            "profile_url": user.html_url,
-            "type": user.type
-        })
-    except Exception as e:
-        print(f"⚠️ Skipped contributor due to: {e}")
+        for user in repo.get_collaborators():
+            collaborators_data.append({
+                "login": safe_login(user),
+                "profile_url": user.html_url
+            })
+    except GithubException:
+        print("⚠️ Collaborators not accessible (likely permission issue)")
+    save_json(collaborators_data, os.path.join(repo_folder, "collaborators.json"))
 
-save_json(contributors_data, "contributors.json")
+    # ---- Org Members ----
+    org_members_data = []
+    if repo.organization:
+        try:
+            for member in repo.organization.get_members():
+                org_members_data.append({
+                    "login": safe_login(member),
+                    "profile_url": member.html_url
+                })
+        except GithubException:
+            print("⚠️ Organization members not accessible")
+    save_json(org_members_data, os.path.join(repo_folder, "org_members.json"))
 
-# ------------------------------------------------------
-# Step 6: Combine All Data
-# ------------------------------------------------------
-final_output = {
-    "repository": repo_data,
-    "issues": issues_data,
-    "commits": commits_data,
-    "contributors": contributors_data
-}
+    # ---- Combine ----
+    combined = {
+        "repository": repo_meta,
+        "issues": issues_data,
+        "commits": commits_data,
+        "contributors": contributors_data,
+        "collaborators": collaborators_data,
+        "org_members": org_members_data
+    }
+    save_json(combined, os.path.join(repo_folder, "repo_full_data.json"))
 
-save_json(final_output, "repo_full_data.json")
+    print(f"✅ Completed collection for {repo_name}")
 
-print("\n✅ All data collection completed successfully!")
-print("Files saved in the 'data/' folder.")
+# ---- Main ----
+if __name__ == "__main__":
+    if not os.path.exists("repos.txt"):
+        raise SystemExit("Missing repos.txt file with repo names")
+
+    with open("repos.txt", "r") as f:
+        repos = [r.strip() for r in f if r.strip()]
+
+    print(f"📦 Found {len(repos)} repositories in repos.txt")
+
+    for repo in repos:
+        try:
+            collect_repo(repo)
+        except Exception as e:
+            print(f"❌ Error collecting {repo}: {e}")
+
+    print("\n🎉 All repositories processed successfully!")
