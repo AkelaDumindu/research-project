@@ -1,7 +1,7 @@
 tensorflow/tensorflow
 microsoft/vscode
 facebook/react
-apache/spark
 pytorch/pytorch
 flutter/flutter
-django/django
+fastlane/fastlane
+ansible/ansible

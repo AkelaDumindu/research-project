@@ -1,0 +1,10 @@
+PyGithub
+python-dotenv
+pandas
+numpy
+scikit-learn
+xgboost
+tqdm
+joblib
+sentence-transformers
+matplotlib

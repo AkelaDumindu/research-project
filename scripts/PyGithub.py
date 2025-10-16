@@ -20,11 +20,11 @@ try:
 except Exception:
     _HAS_AUTH = False
 
-# Configuration
-OUTPUT_DIR = "data"
-ISSUE_LIMIT = 200
-COMMIT_LIMIT = 200
-CONTRIBUTOR_LIMIT = 100
+# Configuration 
+OUTPUT_DIR = "../data"
+ISSUE_LIMIT = 500
+COMMIT_LIMIT = 500
+CONTRIBUTOR_LIMIT = 500
 MAX_RETRY = 3
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -32,7 +32,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 load_dotenv()
 TOKEN = os.getenv("GITHUB_TOKEN")
 if not TOKEN:
-    raise SystemExit("❌ Please create a .env file with GITHUB_TOKEN=your_token")
+    raise SystemExit("Please create a .env file with GITHUB_TOKEN=your_token")
 
 # Create GitHub client
 if _HAS_AUTH:
@@ -67,7 +67,7 @@ def handle_rate_limit():
             reset_time = g.rate_limiting_resettime
             sleep_for = reset_time - time.time() + 5
             if sleep_for > 0:
-                print(f"⚠️ Rate limit hit. Sleeping {sleep_for/60:.1f} minutes...")
+                print(f"Rate limit hit. Sleeping {sleep_for/60:.1f} minutes...")
                 time.sleep(sleep_for)
     except Exception:
         time.sleep(5)
@@ -80,7 +80,7 @@ def collect_repo(repo_name):
     try:
         repo = g.get_repo(repo_name)
     except GithubException as e:
-        print(f"❌ Cannot access {repo_name}: {e}")
+        print(f"Cannot access {repo_name}: {e}")
         return
 
     # ---- Metadata ----
@@ -121,7 +121,7 @@ def collect_repo(repo_name):
                 "url": issue.html_url
             })
         except Exception as e:
-            print(f"⚠️ Skipped issue #{issue.number}: {e}")
+            print(f"Skipped issue #{issue.number}: {e}")
     save_json(issues_data, os.path.join(repo_folder, "issues.json"))
 
     # ---- Commits ----
@@ -140,7 +140,7 @@ def collect_repo(repo_name):
                 "url": commit.html_url
             })
         except Exception as e:
-            print(f"⚠️ Skipped commit: {e}")
+            print(f"Skipped commit: {e}")
     save_json(commits_data, os.path.join(repo_folder, "commits.json"))
 
     # ---- Contributors ----
@@ -156,7 +156,7 @@ def collect_repo(repo_name):
                 "profile_url": user.html_url
             })
         except Exception as e:
-            print(f"⚠️ Skipped contributor: {e}")
+            print(f"Skipped contributor: {e}")
     save_json(contributors_data, os.path.join(repo_folder, "contributors.json"))
 
     # ---- Collaborators (skip if forbidden) ----
@@ -168,7 +168,7 @@ def collect_repo(repo_name):
                 "profile_url": user.html_url
             })
     except GithubException:
-        print("⚠️ Collaborators not accessible (likely permission issue)")
+        print("Collaborators not accessible (likely permission issue)")
     save_json(collaborators_data, os.path.join(repo_folder, "collaborators.json"))
 
     # ---- Org Members ----
@@ -181,7 +181,7 @@ def collect_repo(repo_name):
                     "profile_url": member.html_url
                 })
         except GithubException:
-            print("⚠️ Organization members not accessible")
+            print("Organization members not accessible")
     save_json(org_members_data, os.path.join(repo_folder, "org_members.json"))
 
     # ---- Combine ----
@@ -199,18 +199,18 @@ def collect_repo(repo_name):
 
 # ---- Main ----
 if __name__ == "__main__":
-    if not os.path.exists("repos.txt"):
+    if not os.path.exists("../repos.txt"):
         raise SystemExit("Missing repos.txt file with repo names")
 
-    with open("repos.txt", "r") as f:
+    with open("../repos.txt", "r") as f:
         repos = [r.strip() for r in f if r.strip()]
 
-    print(f"📦 Found {len(repos)} repositories in repos.txt")
+    print(f"Found {len(repos)} repositories in repos.txt")
 
     for repo in repos:
         try:
             collect_repo(repo)
         except Exception as e:
-            print(f"❌ Error collecting {repo}: {e}")
+            print(f"Error collecting {repo}: {e}")
 
     print("\n🎉 All repositories processed successfully!")
