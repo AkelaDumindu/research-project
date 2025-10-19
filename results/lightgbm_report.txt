@@ -1,0 +1,58 @@
+Accuracy: 0.3377
+F1-score (weighted): 0.3283
+
+                precision    recall  f1-score   support
+
+      Akasurde       0.00      0.00      0.00         1
+   AliSoftware       0.00      0.00      0.00         0
+  DonJayamanne       0.00      0.00      0.00         1
+TylerLeonhardt       0.00      0.00      0.00         2
+        Tyriar       0.00      0.00      0.00         3
+    Venkat6871       1.00      0.83      0.91         6
+       aeschli       0.00      0.00      0.00         2
+       alexr00       0.00      0.00      0.00         1
+         bcoca       0.00      0.00      0.00         0
+ benvillalobos       0.00      0.00      0.00         1
+      bhavyaus       0.00      0.00      0.00         1
+        bkonyi       1.00      0.50      0.67         2
+       bleroux       0.33      1.00      0.50         1
+       bpasero       0.00      0.00      0.00         1
+      chrmarti       0.00      0.00      0.00         2
+    connor4312       0.00      0.00      0.00         3
+    deepak1556       0.00      0.00      0.00         1
+    digitarald       0.00      0.00      0.00         0
+          etaf       1.00      1.00      1.00         1
+ gaikwadrahul8       0.00      0.00      0.00         0
+        hediet       0.50      0.50      0.50         2
+         hoxyq       1.00      1.00      1.00         1
+       huycozy       1.00      0.50      0.67         2
+    joaomoreno       0.00      0.00      0.00         0
+    joshspicer       0.00      0.00      0.00         0
+       jrieken       0.00      0.00      0.00         2
+       jruales       0.00      0.00      0.00         0
+      jtmcdole       0.00      0.00      0.00         1
+      justinmc       0.00      0.00      0.00         1
+     justschen       0.00      0.00      0.00         3
+  kentnguyen99       0.89      0.89      0.89         9
+      lramos15       0.00      0.00      0.00         2
+      lszomoru       0.00      0.00      0.00         3
+      mattclay       0.50      1.00      0.67         1
+    meganrogge       0.50      0.80      0.62         5
+      minsa110       0.00      0.00      0.00         1
+         mjbvz       0.33      0.20      0.25         5
+       mkrizek       0.00      0.00      0.00         0
+   mrleemurray       0.00      0.00      0.00         0
+    nitzmahone       0.00      0.00      0.00         0
+  okorohelijah       0.50      1.00      0.67         1
+      osortega       0.00      0.00      0.00         2
+      rebornix       0.00      0.00      0.00         1
+    roblourens       0.00      0.00      0.00         3
+         rwoll       0.00      0.00      0.00         0
+      rzhao271       0.00      0.00      0.00         0
+      sandy081       0.00      0.00      0.00         2
+stuartmorgan-g       0.00      0.00      0.00         1
+     ulugbekna       0.00      0.00      0.00         0
+
+      accuracy                           0.34        77
+     macro avg       0.17      0.19      0.17        77
+  weighted avg       0.34      0.34      0.33        77

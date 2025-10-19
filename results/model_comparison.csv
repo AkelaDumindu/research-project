@@ -1,0 +1,5 @@
+Model,MAP@5,MRR,Top-1 Accuracy
+LogisticRegression,0.6322,0.6322,0.561
+RandomForest,0.8929,0.8929,0.8753
+SVM,0.9036,0.9036,0.8779
+LightGBM,0.8855,0.8855,0.8675
