@@ -40,7 +40,7 @@ print("Accuracy:", accuracy_score(y_test, y_pred))
 print(classification_report(y_test, y_pred))
 
 # Save
-joblib.dump(model, os.path.join(MODEL_DIR, "xgb_repo_model.joblib"))
+joblib.dump(model, os.path.join(MODEL_DIR, "xgboost_model.joblib")) 
 joblib.dump(vectorizer, os.path.join(MODEL_DIR, "tfidf_vectorizer.joblib"))
 joblib.dump(le, os.path.join(MODEL_DIR, "label_encoder.joblib"))
 print("✅ Model saved successfully.")
